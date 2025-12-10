@@ -58,10 +58,45 @@ func (c *youtubeAPIClient) GetMessageIterator(ctx context.Context, liveVideoID s
 		logger:       c.logger,
 	}
 
+	// Perform the initial setup poll to discard old messages and get the starting token.
+	if err = it.initializeToken(); err != nil {
+		return nil, fmt.Errorf("failed to initialize chat token: %w", err)
+	}
+
 	// Start the background goroutine to handle polling and channel population
 	go it.startPolling()
 
 	return it, nil
+}
+
+// initializeToken performs the first API call to get the starting token.
+// The messages returned in this call are NOT sent to the message channel,
+// effectively discarding the chat history.
+func (it *youtubeIterator) initializeToken() error {
+	it.logger.Debug("Getting initial page token to start from NOW...")
+
+	// Call without a page token to get the history and the NEXT token.
+	call := it.service.LiveChatMessages.List(it.liveChatID, []string{"snippet"}).
+		Context(it.ctx)
+
+	// NOTE: We deliberately do not request authorDetails here to slightly reduce the response size
+	// for a request whose data we intend to discard.
+
+	resp, err := call.Do()
+	if err != nil {
+		return fmt.Errorf("initial API call failed: %w", err)
+	}
+
+	// This is the key step: Capture the token but ignore the items in 'resp.Items'.
+	it.pageToken = resp.NextPageToken
+
+	// Update polling delay based on API recommendation
+	if resp.PollingIntervalMillis > 0 {
+		it.pollingDelay = time.Duration(resp.PollingIntervalMillis) * time.Millisecond
+	}
+
+	it.logger.Debug(fmt.Sprintf("Initialization complete. Starting token: %s", it.pageToken))
+	return nil
 }
 
 // Next blocks and returns the next message from the channel.
