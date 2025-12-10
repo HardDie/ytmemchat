@@ -1,7 +1,5 @@
 package config
 
-import "os"
-
 type Youtube struct {
 	APIKey   string
 	StreamID string
@@ -9,7 +7,7 @@ type Youtube struct {
 
 func youtubeConfig() Youtube {
 	return Youtube{
-		APIKey:   os.Getenv("YOUTUBE_API_KEY"),
-		StreamID: os.Getenv("YOUTUBE_STREAM_ID"),
+		APIKey:   getEnv("YOUTUBE_API_KEY"),
+		StreamID: getEnv("YOUTUBE_STREAM_ID"),
 	}
 }

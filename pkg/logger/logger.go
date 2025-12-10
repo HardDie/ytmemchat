@@ -8,6 +8,8 @@ import (
 const (
 	LogService    = "service"
 	LogValueError = "error"
+	LogMessage    = "message"
+	LogTTSName    = "tts_name"
 )
 
 var (

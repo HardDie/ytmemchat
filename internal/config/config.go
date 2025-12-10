@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -12,6 +13,7 @@ import (
 )
 
 type Config struct {
+	TTS     TTS
 	Youtube Youtube
 }
 
@@ -28,6 +30,7 @@ func Get() Config {
 	}
 
 	cfg := Config{
+		TTS:     ttsConfig(),
 		Youtube: youtubeConfig(),
 	}
 	return cfg
@@ -72,4 +75,21 @@ func getEnvAsInt(key string) int {
 		panic(nil)
 	}
 	return v
+}
+
+func getEnvAsBool(key string) bool {
+	value := getEnv(key)
+	switch {
+	case strings.EqualFold(value, "true"):
+		return true
+	case strings.EqualFold(value, "false"):
+		return false
+	default:
+		logger.Error(
+			"env value invalid bool",
+			slog.String("key", key),
+		)
+		//nolint:govet // it's okay for configuration
+		panic(nil)
+	}
 }

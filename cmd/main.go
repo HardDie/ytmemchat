@@ -8,6 +8,7 @@ import (
 
 	clientYoutube "github.com/HardDie/ytmemchat/internal/clients/youtube"
 	"github.com/HardDie/ytmemchat/internal/config"
+	"github.com/HardDie/ytmemchat/internal/tts"
 	"github.com/HardDie/ytmemchat/pkg/logger"
 )
 
@@ -56,6 +57,18 @@ func gracefulMain() int {
 			message.Author,
 			message.Message,
 		))
+
+		if cfg.TTS.Enabled {
+			err = tts.Speak(message.Message, cfg.TTS.Name)
+			if err != nil {
+				logger.Error(
+					"failed to speak message",
+					slog.String(logger.LogValueError, err.Error()),
+					slog.String(logger.LogMessage, message.Message),
+					slog.String(logger.LogTTSName, cfg.TTS.Name),
+				)
+			}
+		}
 	}
 
 	return exitSuccess
