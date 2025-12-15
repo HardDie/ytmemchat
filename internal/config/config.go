@@ -13,6 +13,7 @@ import (
 )
 
 type Config struct {
+	Alerts  Alerts
 	TTS     TTS
 	Youtube Youtube
 }
@@ -30,6 +31,7 @@ func Get() Config {
 	}
 
 	cfg := Config{
+		Alerts:  alertsConfig(),
 		TTS:     ttsConfig(),
 		Youtube: youtubeConfig(),
 	}
@@ -92,4 +94,17 @@ func getEnvAsBool(key string) bool {
 		//nolint:govet // it's okay for configuration
 		panic(nil)
 	}
+}
+
+func getEnvAsRune(key string) rune {
+	value := []rune(getEnv(key))
+	if len(value) != 1 {
+		logger.Error(
+			"env value invalid rune",
+			slog.String("key", key),
+		)
+		//nolint:govet // it's okay for configuration
+		panic(nil)
+	}
+	return value[0]
 }

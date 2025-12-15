@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OBS Media Overlay</title>
+    <style>
+        body {
+            /* Set transparent background for OBS */
+            background-color: rgba(0, 0, 0, 0); 
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Hide scrollbars */
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        /* Container for Border, Shadow, Rotation, Position, and Scale */
+        .alert-container {
+            position: absolute;
+            z-index: 1000;
+            
+            /* Visual styling for the "frame" */
+            border: 15px solid #FFFFFF; /* White Border */
+            border-radius: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.8); /* Drop shadow for depth */
+            background-color: rgba(0, 0, 0, 0.7); 
+            
+            /* IMPORTANT: No padding ensures media sits directly against the border */
+            
+            opacity: 0;
+            /* Transition for fade-in/out and complex transform (rotation/scale) */
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out; 
+            /* Transformation origin must be center for correct scaling/rotation */
+            transform-origin: center center;
+        }
+        
+        /* The actual media element inside the container */
+        .media-alert {
+            display: block; 
+            max-width: 400px; /* Maximum base size for the media */
+            max-height: 400px; 
+            object-fit: contain; 
+            
+            /* Ensures media fills the container edge-to-edge (since padding is zero) */
+            width: 100%; 
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <script>
+        const wsUri = "ws://localhost:8080/ws";
+        
+        // Screen dimensions will be set by the OBS Browser Source size
+        const OBS_WIDTH = window.innerWidth;
+        const OBS_HEIGHT = window.innerHeight;
+
+        function connectWebSocket() {
+            const websocket = new WebSocket(wsUri);
+
+            websocket.onopen = function() {
+                console.log("WebSocket Connected! Ready for media alerts.");
+            };
+
+            websocket.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    const filename = data.filename; 
+                    
+                    // Retrieve parameters, using defaults if not provided in the webhook
+                    const volume = data.volume !== undefined ? data.volume : 0.8;
+                    const scale = data.scale !== undefined ? data.scale : 1.0; 
+
+                    if (filename) {
+                        // Pass all parameters to the display function
+                        displayMediaAlert(filename, volume, scale); 
+                    }
+                } catch (e) {
+                    console.error("Error processing WebSocket message:", e);
+                }
+            };
+            
+            websocket.onerror = function(error) {
+                console.error("WebSocket Error:", error);
+            };
+
+            websocket.onclose = function(event) {
+                console.log("WebSocket Disconnected. Reconnecting in 5 seconds...", event.reason);
+                setTimeout(connectWebSocket, 5000);
+            };
+        }
+
+        /**
+         * Creates and displays the media container with all dynamic properties.
+         * @param {string} filename - The filename from the webhook.
+         * @param {number} volume - The volume level (0.0 to 1.0).
+         * @param {number} scale - The scale multiplier (e.g., 1.0, 1.5, 0.75).
+         */
+        function displayMediaAlert(filename, volume, scale) {
+            const mediaUrl = `/media/${filename}`;
+            
+            // Check file type for handling
+            const isVideo = filename.match(/\.(mp4|webm|mov|gif)$/i); 
+            const isAudio = filename.match(/\.(mp3|ogg|wav|aac|flac)$/i); 
+
+            // --- 1. Handle Pure Audio Files ---
+            if (isAudio) {
+                const audioElement = document.createElement('audio');
+                audioElement.src = mediaUrl;
+                audioElement.autoplay = true;
+                audioElement.volume = volume; 
+                document.body.appendChild(audioElement);
+
+                // Removal logic based on playback end
+                audioElement.onended = () => {
+                    audioElement.remove();
+                };
+                return; // Audio handled, exit function
+            }
+            
+            // --- 2. Handle Visual Media (Video/GIF) ---
+            
+            let mediaElement;
+            const container = document.createElement('div');
+            container.className = 'alert-container';
+
+            if (isVideo) {
+                mediaElement = document.createElement('video');
+                mediaElement.autoplay = true;
+                mediaElement.loop = false;
+                mediaElement.muted = false; 
+                
+                // Set the specific volume level for this alert
+                mediaElement.volume = volume; 
+                
+                mediaElement.playsInline = true;
+                mediaElement.preload = "metadata"; 
+            } else {
+                mediaElement = document.createElement('img');
+            }
+            
+            mediaElement.src = mediaUrl;
+            mediaElement.className = 'media-alert';
+            container.appendChild(mediaElement);
+            document.body.appendChild(container);
+            
+            // 3. Layout, Rotation, and Scale Application
+            const handleMediaLoad = () => {
+                mediaElement.removeEventListener('load', handleMediaLoad);
+                mediaElement.removeEventListener('loadedmetadata', handleMediaLoad);
+                
+                // Get the container's unscaled, original size (W, H, including border)
+                const originalWidth = container.offsetWidth; 
+                const originalHeight = container.offsetHeight;
+                
+                // Calculate the actual size the element will occupy after scaling
+                const scaledWidth = originalWidth * scale;
+                const scaledHeight = originalHeight * scale;
+
+                // Apply Rotation and Scale
+                const randomRotation = (Math.random() * 20) - 10;
+                container.style.transform = `rotate(${randomRotation}deg) scale(${scale})`;
+                
+                // 3. Random Position Calculation (ensuring element is fully on screen)
+                const safeXRange = OBS_WIDTH - scaledWidth;
+                const safeYRange = OBS_HEIGHT - scaledHeight;
+                
+                // Generate random position for the TOP-LEFT corner of the overall bounding box.
+                const randomX = Math.random() * Math.max(0, safeXRange); 
+                const randomY = Math.random() * Math.max(0, safeYRange); 
+
+                // Adjust position to account for the scaling origin (center).
+                const offsetX = (scaledWidth - originalWidth) / 2;
+                const offsetY = (scaledHeight - originalHeight) / 2;
+
+                // Apply position, adjusted for scale offset
+                container.style.left = `${randomX - offsetX}px`;
+                container.style.top = `${randomY - offsetY}px`;
+                container.style.opacity = 1; // Fade in
+
+                // 7. Media Removal Logic
+                if (isVideo) {
+                    mediaElement.onended = () => {
+                        removeMediaElement(container);
+                    };
+                } else {
+                    // For GIFs/Images, remove after a fixed duration (e.g., 6 seconds)
+                    setTimeout(() => {
+                        removeMediaElement(container);
+                    }, 6000); 
+                }
+            };
+            
+            mediaElement.addEventListener('load', handleMediaLoad);
+            mediaElement.addEventListener('loadedmetadata', handleMediaLoad);
+
+            if (mediaElement.complete || (mediaElement.readyState >= 1 && isVideo)) {
+                handleMediaLoad();
+            }
+        }
+        
+        function removeMediaElement(container) {
+            container.style.opacity = 0; // Start fade out
+            setTimeout(() => {
+                container.remove();
+            }, 500); // Wait for transition duration before removing
+        }
+
+        connectWebSocket();
+    </script>
+</body>
+</html>

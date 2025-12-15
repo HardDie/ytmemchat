@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/HardDie/ytmemchat/internal/alerts"
 	clientYoutube "github.com/HardDie/ytmemchat/internal/clients/youtube"
 	"github.com/HardDie/ytmemchat/internal/config"
 	"github.com/HardDie/ytmemchat/internal/tts"
@@ -42,6 +43,19 @@ func gracefulMain() int {
 		return exitFailure
 	}
 
+	al, err := alerts.New(alerts.Config{
+		Token:            string(cfg.Alerts.Token),
+		MediaPath:        cfg.Alerts.MediaPath,
+		CommandsFilePath: cfg.Alerts.CommandsFilePath,
+	})
+	if err != nil {
+		logger.Error(
+			"failed to init alert service",
+			slog.String(logger.LogValueError, err.Error()),
+		)
+		return exitFailure
+	}
+
 	for {
 		message, ok := ytIt.Next()
 		if !ok {
@@ -57,6 +71,13 @@ func gracefulMain() int {
 			message.Author,
 			message.Message,
 		))
+
+		if cfg.Alerts.Enabled {
+			if al.Alert(message.Message) {
+				// Do not pronounce messages with alert token.
+				continue
+			}
+		}
 
 		if cfg.TTS.Enabled {
 			err = tts.Speak(message.Message, cfg.TTS.Name)
