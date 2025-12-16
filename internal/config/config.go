@@ -14,6 +14,7 @@ import (
 
 type Config struct {
 	Alerts  Alerts
+	Server  Server
 	TTS     TTS
 	Youtube Youtube
 }
@@ -32,6 +33,7 @@ func Get() Config {
 
 	cfg := Config{
 		Alerts:  alertsConfig(),
+		Server:  serverConfig(),
 		TTS:     ttsConfig(),
 		Youtube: youtubeConfig(),
 	}

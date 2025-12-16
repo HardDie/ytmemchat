@@ -52,6 +52,11 @@ func TestFindToken(t *testing.T) {
 			Str:   "check @so@me",
 			Want:  "so@me",
 		},
+		"in the middle, no word": {
+			Token: "@",
+			Str:   "check @ more",
+			Want:  "",
+		},
 	}
 
 	for name, tc := range tests {

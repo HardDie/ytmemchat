@@ -1,4 +1,4 @@
-package alerts
+package server
 
 import (
 	_ "embed"

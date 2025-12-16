@@ -1,26 +1,25 @@
 package alerts
 
 import (
-	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
-	"os"
 	"strings"
 
+	"github.com/HardDie/ytmemchat/internal/server"
 	"github.com/HardDie/ytmemchat/pkg/utils"
-	"gopkg.in/yaml.v2"
 )
 
 type Config struct {
 	Token            string
 	MediaPath        string
 	CommandsFilePath string
+	Broadcast        chan server.WebsocketPayload
 }
 
 type Alerts struct {
-	cfg      Config
-	commands map[string]command
+	cfg       Config
+	commands  map[string]command
+	broadcast chan server.WebsocketPayload
 }
 
 func New(cfg Config) (*Alerts, error) {
@@ -30,8 +29,9 @@ func New(cfg Config) (*Alerts, error) {
 	}
 
 	a := Alerts{
-		cfg:      cfg,
-		commands: make(map[string]command),
+		cfg:       cfg,
+		commands:  make(map[string]command),
+		broadcast: cfg.Broadcast,
 	}
 	for _, it := range cmd.Commands {
 		_, ok := a.commands[strings.ToLower(it.Name)]
@@ -39,11 +39,6 @@ func New(cfg Config) (*Alerts, error) {
 			return nil, fmt.Errorf("duplicate command: %s", it.Name)
 		}
 		a.commands[strings.ToLower(it.Name)] = it
-	}
-
-	{
-		data, _ := json.MarshalIndent(a.commands, "", "  ")
-		log.Println(string(data))
 	}
 
 	return &a, nil
@@ -58,7 +53,7 @@ func (a *Alerts) Alert(msg string) bool {
 	if !ok {
 		return false
 	}
-	broadcast <- WebhookPayload{
+	a.broadcast <- server.WebsocketPayload{
 		Filename: cmd.File,
 		Volume:   utils.FromPtr(cmd.Volume, 1),
 		Scale:    utils.FromPtr(cmd.Scale, 1),
@@ -66,54 +61,10 @@ func (a *Alerts) Alert(msg string) bool {
 	return true
 }
 
-func someMain() {
-	// Start the broadcaster in a goroutine
-	go broadcaster()
-
-	// 1. Media File Server: Serves files from the local 'media/' directory under the URL path '/media/'.
-	// e.g., files in ./media are accessible via http://localhost:8080/media/...
-	mediaDir := http.Dir("./media")
+func (a *Alerts) GetMediaHandler() http.Handler {
+	mediaDir := http.Dir(a.cfg.MediaPath)
 	mediaHandler := http.StripPrefix("/media/", http.FileServer(mediaDir))
-	http.Handle("/media/", mediaHandler)
-
-	// 2. HTTP/HTML Route: Handles the root path (/)
-	http.HandleFunc("/", htmlHandler)
-
-	//// 3. Webhook Route: Handles incoming webhook POST requests
-	//http.HandleFunc("/webhook", webhookHandler)
-
-	// 4. WebSocket Route: Handles real-time client connections
-	http.HandleFunc("/ws", wsHandler)
-
-	port := ":8080"
-	log.Printf("Go service listening on http://localhost%s", port)
-	log.Fatal(http.ListenAndServe(port, nil))
-}
-
-type command struct {
-	Name   string
-	File   string
-	Volume *float64
-	Scale  *float64
-}
-type commands struct {
-	Commands []command
-}
-
-func parseCommands(path string) (*commands, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("os.Open(): %w", err)
-	}
-	defer file.Close()
-
-	var cmd commands
-	err = yaml.NewDecoder(file).Decode(&cmd)
-	if err != nil {
-		return nil, fmt.Errorf("yaml.Decode(): %w", err)
-	}
-
-	return &cmd, nil
+	return mediaHandler
 }
 
 func findToken(token, str string) string {

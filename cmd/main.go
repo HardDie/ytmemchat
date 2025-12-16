@@ -6,9 +6,13 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/HardDie/ytmemchat/pkg/utils"
+	"github.com/oklog/run"
+
 	"github.com/HardDie/ytmemchat/internal/alerts"
 	clientYoutube "github.com/HardDie/ytmemchat/internal/clients/youtube"
 	"github.com/HardDie/ytmemchat/internal/config"
+	"github.com/HardDie/ytmemchat/internal/server"
 	"github.com/HardDie/ytmemchat/internal/tts"
 	"github.com/HardDie/ytmemchat/pkg/logger"
 )
@@ -23,8 +27,12 @@ func main() {
 }
 
 func gracefulMain() int {
-	ctx := context.Background()
 	cfg := config.Get()
+	ctx, signalHandler := utils.NewSignalHandler(context.Background())
+
+	srv := server.New(server.Config{
+		Port: cfg.Server.Port,
+	})
 
 	yt, err := clientYoutube.New(cfg.Youtube.APIKey)
 	if err != nil {
@@ -47,6 +55,7 @@ func gracefulMain() int {
 		Token:            string(cfg.Alerts.Token),
 		MediaPath:        cfg.Alerts.MediaPath,
 		CommandsFilePath: cfg.Alerts.CommandsFilePath,
+		Broadcast:        srv.GetBroadcast(),
 	})
 	if err != nil {
 		logger.Error(
@@ -56,40 +65,67 @@ func gracefulMain() int {
 		return exitFailure
 	}
 
-	for {
-		message, ok := ytIt.Next()
-		if !ok {
-			logger.Error(
-				"Youtube iterator closed. Exit application.",
-			)
-			break
-		}
-		logger.Debug(fmt.Sprintf(
-			"[%s | %s] %s: %s",
-			message.Timestamp.Format("15:04:05"),
-			message.Type,
-			message.Author,
-			message.Message,
-		))
+	if cfg.Alerts.Enabled {
+		srv.RegisterHandle("/media/", al.GetMediaHandler())
+	}
 
-		if cfg.Alerts.Enabled {
-			if al.Alert(message.Message) {
-				// Do not pronounce messages with alert token.
-				continue
-			}
-		}
+	// Run all background services with graceful shutdown
+	var g run.Group
+	g.Add(srv.Run, srv.GracefulShutdown)
+	g.Add(
+		func() error {
+			for {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
 
-		if cfg.TTS.Enabled {
-			err = tts.Speak(message.Message, cfg.TTS.Name)
-			if err != nil {
-				logger.Error(
-					"failed to speak message",
-					slog.String(logger.LogValueError, err.Error()),
-					slog.String(logger.LogMessage, message.Message),
-					slog.String(logger.LogTTSName, cfg.TTS.Name),
-				)
+				message, ok := ytIt.Next()
+				if !ok {
+					logger.Error(
+						"Youtube iterator closed. Exit application.",
+					)
+					break
+				}
+				logger.Debug(fmt.Sprintf(
+					"[%s | %s] %s: %s",
+					message.Timestamp.Format("15:04:05"),
+					message.Type,
+					message.Author,
+					message.Message,
+				))
+
+				if cfg.Alerts.Enabled {
+					if al.Alert(message.Message) {
+						// Do not pronounce messages with alert token.
+						continue
+					}
+				}
+
+				if cfg.TTS.Enabled {
+					err = tts.Speak(message.Message, cfg.TTS.Name)
+					if err != nil {
+						logger.Error(
+							"failed to speak message",
+							slog.String(logger.LogValueError, err.Error()),
+							slog.String(logger.LogMessage, message.Message),
+							slog.String(logger.LogTTSName, cfg.TTS.Name),
+						)
+					}
+				}
 			}
-		}
+			return nil
+		},
+		func(err error) {},
+	)
+	g.Add(signalHandler.Run, signalHandler.GracefulShutdown)
+
+	// Working!
+	if err = g.Run(); err != nil {
+		logger.Error(
+			"error running group",
+			slog.String("error", err.Error()),
+		)
+		return exitFailure
 	}
 
 	return exitSuccess
