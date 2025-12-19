@@ -64,9 +64,16 @@ func gracefulMain() int {
 		)
 		return exitFailure
 	}
+	ttsService := tts.New(tts.Config{
+		VoiceName: cfg.TTS.Name,
+		Broadcast: srv.GetBroadcast(),
+	})
 
 	if cfg.Alerts.Enabled {
 		srv.RegisterHandle("/media/", al.GetMediaHandler())
+	}
+	if cfg.TTS.Enabled {
+		srv.RegisterHandleFunc("/playback", ttsService.GetPlaybackHandler)
 	}
 
 	// Run all background services with graceful shutdown
@@ -102,7 +109,7 @@ func gracefulMain() int {
 				}
 
 				if cfg.TTS.Enabled {
-					err = tts.Speak(message.Message, cfg.TTS.Name)
+					err = ttsService.SynthesizeAudio(message.Message)
 					if err != nil {
 						logger.Error(
 							"failed to speak message",

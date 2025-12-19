@@ -4,6 +4,8 @@ package tts
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"os/exec"
 	"regexp"
 	"runtime"
@@ -28,6 +30,68 @@ func speak(text string, voiceName string) error {
 		return fmt.Errorf("TTS command failed on %s: %w", runtime.GOOS, err)
 	}
 	return nil
+}
+
+// synthesize implements the audio generation for Unix-like systems.
+func synthesize(text string, voiceName string) ([]byte, string, error) {
+	var cmd *exec.Cmd
+	var format string
+	var finalFilePath string
+
+	// 1. Create a temporary file path with the target extension
+	tempFile, err := ioutil.TempFile("", "tts_audio_*.wav")
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tempFilePath := tempFile.Name()
+	tempFile.Close()
+
+	// Ensure the temporary file is deleted when the function exits
+	defer os.Remove(tempFilePath)
+
+	// 2. Build command to output to file
+	switch runtime.GOOS {
+	case "darwin": // macOS
+		// Use the discovered method to output a direct WAV file.
+		// LEF32@32000 is a standard, cross-platform friendly format.
+		cmd = exec.Command("say",
+			"-v", voiceName,
+			"-o", tempFilePath,
+			"--data-format=LEF32@32000",
+			text)
+
+		format = "wav"
+		finalFilePath = tempFilePath
+
+	case "linux": // Linux (espeak)
+		// Standard espeak method remains the same (produces WAV)
+		cmd = exec.Command("espeak", "-v", voiceName, "-w", tempFilePath, text)
+		format = "wav"
+		finalFilePath = tempFilePath
+
+	default:
+		return nil, "", fmt.Errorf("unsupported OS for native TTS synthesis: %s", runtime.GOOS)
+	}
+
+	// 3. Execute the command
+	if _, err := cmd.CombinedOutput(); err != nil {
+		return nil, "", fmt.Errorf("TTS command failed on %s (Tool: %s): %w", runtime.GOOS, cmd.Path, err)
+	}
+
+	// 4. Read the file into the buffer
+	audioData, err := ioutil.ReadFile(finalFilePath)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to read synthesized audio file: %w", err)
+	}
+
+	if len(audioData) == 0 {
+		return nil, "", fmt.Errorf("synthesized audio file is empty")
+	}
+
+	// CRITICAL: Call the private setter function instead of returning data
+	setSynthesizedAudio(audioData, format)
+
+	return audioData, format, nil
 }
 
 // getAvailableVoices lists voices on macOS/Linux and parses details.

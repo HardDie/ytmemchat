@@ -50,7 +50,7 @@
 
 <body>
 	<script>
-	const wsUri = "ws://localhost:8080/ws";
+    const wsUri = 'ws://' + window.location.host + '/ws';
 	// Screen dimensions will be set by the OBS Browser Source size
 	const OBS_WIDTH = window.innerWidth;
 	const OBS_HEIGHT = window.innerHeight;
@@ -63,14 +63,17 @@
 		websocket.onmessage = function(event) {
 			try {
 				const data = JSON.parse(event.data);
+                const type = data.type;
 				const filename = data.filename;
 				// Retrieve parameters, using defaults if not provided in the webhook
 				const volume = data.volume !== undefined ? data.volume : 0.8;
 				const scale = data.scale !== undefined ? data.scale : 1.0;
-				if(filename) {
-					// Pass all parameters to the display function
-					displayMediaAlert(filename, volume, scale);
-				}
+                if (type === 'alert') {
+                    // Pass all parameters to the display function
+                    displayMediaAlert(filename, volume, scale);
+                } else if (type === 'tts') {
+                    displayTTS(volume);
+                }
 			} catch(e) {
 				console.error("Error processing WebSocket message:", e);
 			}
@@ -171,6 +174,18 @@
 			handleMediaLoad();
 		}
 	}
+    function displayTTS(volume) {
+        const mediaUrl = '/playback';
+        const audioElement = document.createElement('audio');
+        audioElement.src = mediaUrl;
+        audioElement.autoplay = true;
+        audioElement.volume = volume;
+        document.body.appendChild(audioElement);
+        // Removal logic based on playback end
+        audioElement.onended = () => {
+            audioElement.remove();
+        };
+    }
 
 	function removeMediaElement(container) {
 		container.style.opacity = 0; // Start fade out

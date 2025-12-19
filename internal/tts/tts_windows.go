@@ -5,6 +5,8 @@ package tts
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -28,6 +30,48 @@ func speak(text string, voiceName string) error {
 		return fmt.Errorf("PowerShell execution failed (Voice: %s): %v. Output: %s", voiceName, err, string(output))
 	}
 	return nil
+}
+
+// synthesize implements the audio generation for Windows.
+func synthesize(text string, voiceName string) ([]byte, string, error) {
+	// 1. Create a temporary file path
+	tempFile, err := ioutil.TempFile("", "tts_audio_*.wav")
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tempFilePath := tempFile.Name()
+	tempFile.Close()              // Close immediately so PowerShell can write to it
+	defer os.Remove(tempFilePath) // CRITICAL: Ensure the temp file is deleted
+
+	// Escape text for PowerShell
+	safeText := strings.ReplaceAll(text, "'", "''")
+
+	// 2. Build PowerShell command to write audio to the temp file
+	powershellScript := fmt.Sprintf(`
+		Add-Type -AssemblyName System.Speech;
+		$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer;
+		$synth.SelectVoice('%s');
+        $synth.SetOutputToWaveFile('%s'); # Output to WAV file
+		$synth.Speak('%s');
+        $synth.Dispose();
+	`, voiceName, tempFilePath, safeText)
+
+	cmd := exec.Command("powershell", "-NoProfile", "-Command", powershellScript)
+
+	if _, err := cmd.CombinedOutput(); err != nil {
+		return nil, "", fmt.Errorf("powershell audio write failed: %w", err)
+	}
+
+	// 3. Read the WAV file into the buffer
+	audioData, err := ioutil.ReadFile(tempFilePath)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to read temp audio file: %w", err)
+	}
+
+	// CRITICAL: Call the private setter function instead of returning data
+	setSynthesizedAudio(audioData, "wav")
+
+	return audioData, "wav", nil
 }
 
 // getAvailableVoices now parses JSON output from PowerShell for detailed VoiceInfo.

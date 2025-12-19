@@ -54,6 +54,7 @@ func (a *Alerts) Alert(msg string) bool {
 		return false
 	}
 	a.broadcast <- server.WebsocketPayload{
+		Type:     server.PayloadTypeAlert,
 		Filename: cmd.File,
 		Volume:   utils.FromPtr(cmd.Volume, 1),
 		Scale:    utils.FromPtr(cmd.Scale, 1),
