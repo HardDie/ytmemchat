@@ -11,6 +11,7 @@ import (
 
 	"github.com/HardDie/ytmemchat/internal/alerts"
 	clientYoutube "github.com/HardDie/ytmemchat/internal/clients/youtube"
+	clientYoutubeV1 "github.com/HardDie/ytmemchat/internal/clients/youtubev1"
 	"github.com/HardDie/ytmemchat/internal/config"
 	"github.com/HardDie/ytmemchat/internal/server"
 	"github.com/HardDie/ytmemchat/internal/tts"
@@ -34,13 +35,26 @@ func gracefulMain() int {
 		Port: cfg.Server.Port,
 	})
 
-	yt, err := clientYoutube.New(cfg.Youtube.APIKey)
-	if err != nil {
-		logger.Error(
-			"failed to create youtube client",
-			slog.String(logger.LogValueError, err.Error()),
-		)
-		return exitFailure
+	var err error
+	var yt clientYoutube.Client
+	if !true {
+		yt, err = clientYoutube.New(cfg.Youtube.APIKey)
+		if err != nil {
+			logger.Error(
+				"failed to create youtube client",
+				slog.String(logger.LogValueError, err.Error()),
+			)
+			return exitFailure
+		}
+	} else {
+		yt, err = clientYoutubeV1.New(cfg.Youtube.APIKey)
+		if err != nil {
+			logger.Error(
+				"failed to create youtube client v1",
+				slog.String(logger.LogValueError, err.Error()),
+			)
+			return exitFailure
+		}
 	}
 	ytIt, err := yt.GetMessageIterator(ctx, cfg.Youtube.StreamID)
 	if err != nil {

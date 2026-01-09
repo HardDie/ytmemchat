@@ -3,6 +3,8 @@ module github.com/HardDie/ytmemchat
 go 1.25.3
 
 require (
+	github.com/PuerkitoBio/goquery v1.11.0
+	github.com/go-resty/resty/v2 v2.17.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/joho/godotenv v1.5.1
 	github.com/oklog/run v1.2.0
@@ -15,6 +17,7 @@ require (
 	cloud.google.com/go/auth v0.17.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
+	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
