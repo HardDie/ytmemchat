@@ -17,7 +17,6 @@ import (
 
 type youtubeIterator struct {
 	ctx          context.Context
-	apiKey       string
 	liveVideoID  string
 	pageToken    string
 	pollingDelay time.Duration
@@ -25,22 +24,19 @@ type youtubeIterator struct {
 	logger       *slog.Logger
 }
 
-func New(apiKey string) (clientYoutube.Client, error) {
+func New() (clientYoutube.Client, error) {
 	return &youtubeAPIClient{
-		apiKey: apiKey,
 		logger: logger.Logger.With(slog.String(logger.LogService, "YouTube Client v1")),
 	}, nil
 }
 
 type youtubeAPIClient struct {
-	apiKey string
 	logger *slog.Logger
 }
 
 func (c *youtubeAPIClient) GetMessageIterator(ctx context.Context, liveVideoID string) (clientYoutube.MessageIterator, error) {
 	it := &youtubeIterator{
 		ctx:          ctx,
-		apiKey:       c.apiKey,
 		liveVideoID:  liveVideoID,
 		pageToken:    "",              // Start with an empty token
 		pollingDelay: 5 * time.Second, // Default initial delay
@@ -133,7 +129,7 @@ func (it *youtubeIterator) startPolling() {
 
 		// 1. Call the API
 		resp, _ := client.R().
-			SetQueryParam("key", it.apiKey).
+			SetQueryParam("prettyPrint", "false").
 			SetBody(payload).
 			SetResult(&result).
 			Post("https://www.youtube.com/youtubei/v1/live_chat/get_live_chat")
@@ -147,6 +143,9 @@ func (it *youtubeIterator) startPolling() {
 		actions := result.ContinuationContents.LiveChatContinuation.Actions
 		for _, action := range actions {
 			chatMsg := convertToChatMessage(action.AddChatItemAction.Item.LiveChatTextMessageRenderer)
+			if chatMsg.Message == "" {
+				continue
+			}
 			select {
 			case it.messageChan <- chatMsg:
 				// Message sent successfully

@@ -47,7 +47,7 @@ func gracefulMain() int {
 			return exitFailure
 		}
 	} else {
-		yt, err = clientYoutubeV1.New(cfg.Youtube.APIKey)
+		yt, err = clientYoutubeV1.New()
 		if err != nil {
 			logger.Error(
 				"failed to create youtube client v1",
