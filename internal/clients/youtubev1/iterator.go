@@ -158,8 +158,24 @@ func (it *youtubeIterator) startPolling() {
 		// 3. Update Polling Parameters
 		conns := result.ContinuationContents.LiveChatContinuation.Continuations
 		if len(conns) > 0 {
-			it.pageToken = conns[0].TimedContinuationData.Continuation
-			it.pollingDelay = time.Duration(conns[0].TimedContinuationData.TimeoutMs) * time.Millisecond
+			if conns[0].TimedContinuationData != nil {
+				if conns[0].TimedContinuationData.Continuation != "" {
+					it.pageToken = conns[0].TimedContinuationData.Continuation
+				}
+				if conns[0].TimedContinuationData.TimeoutMs > 0 {
+					it.pollingDelay = time.Duration(conns[0].TimedContinuationData.TimeoutMs) * time.Millisecond
+				}
+			} else if conns[0].InvalidationContinuationData != nil {
+				if conns[0].InvalidationContinuationData.Continuation != "" {
+					it.pageToken = conns[0].InvalidationContinuationData.Continuation
+				}
+				if conns[0].InvalidationContinuationData.TimeoutMs > 0 {
+					it.pollingDelay = time.Duration(conns[0].InvalidationContinuationData.TimeoutMs) * time.Millisecond
+				}
+			} else {
+				it.logger.Error("continuation data has not been found")
+				it.pollingDelay = 5 * time.Second
+			}
 		}
 	}
 }
@@ -181,10 +197,14 @@ type YTInternalResponse struct {
 	ContinuationContents struct {
 		LiveChatContinuation struct {
 			Continuations []struct {
-				TimedContinuationData struct {
+				TimedContinuationData *struct {
 					Continuation string `json:"continuation"`
 					TimeoutMs    int64  `json:"timeoutMs"`
 				} `json:"timedContinuationData"`
+				InvalidationContinuationData *struct {
+					Continuation string `json:"continuation"`
+					TimeoutMs    int64  `json:"timeoutMs"`
+				} `json:"invalidationContinuationData"`
 			} `json:"continuations"`
 			Actions []struct {
 				AddChatItemAction struct {
