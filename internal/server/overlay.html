@@ -53,8 +53,19 @@
 
 	<script>
     const startBtn = document.getElementById('start-btn');
-    startBtn.addEventListener('click', () => {
-        console.log('Playback resumed successfully');
+    let audioContext;
+    startBtn.addEventListener('click', async () => {
+        // Initialize the context if it doesn't exist
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        // Explicitly resume in case it's suspended
+        if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+        }
+
+        console.log('AudioContext is active:', audioContext.state);
         startBtn.style.display = 'none'; // Hide button after activation
     });
 
@@ -62,7 +73,6 @@
 	// Screen dimensions will be set by the OBS Browser Source size
 	const OBS_WIDTH = window.innerWidth;
 	const OBS_HEIGHT = window.innerHeight;
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
     // --- Queue Management ---
     let alertQueue = [];
@@ -211,6 +221,12 @@
 		}
 	}
     function displayTTS(payload, volume) {
+        if (!audioContext) {
+            console.warn("AudioContext not initialized. Click the 'Start' button first.");
+            onMediaFinished(); // Don't block the queue
+            return;
+        }
+
         // 1. Convert Base64 string back to binary (ArrayBuffer)
         const binaryString = atob(payload);
         const len = binaryString.length;
