@@ -77,11 +77,34 @@
     #start-btn:active {
         transform: translate(-50%, -48%) scale(0.95);
     }
+
+    #connection-status {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        padding: 8px 15px;
+        border-radius: 5px;
+        font-family: sans-serif;
+        font-size: 14px;
+        font-weight: bold;
+        color: white;
+        background-color: rgba(255, 0, 0, 0.7); /* Red for disconnected */
+        display: none; /* Hidden by default when connected */
+        z-index: 10001;
+        pointer-events: none; /* Don't interfere with clicks */
+    }
+
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
 	</style>
 </head>
 
 <body>
     <button id="start-btn">Enable Audio & Connect</button>
+    <div id="connection-status">⚠️ WEB SOCKET DISCONNECTED - RETRYING...</div>
 
 	<script>
     const startBtn = document.getElementById('start-btn');
@@ -100,6 +123,9 @@
         console.log('AudioContext is active:', audioContext.state);
         startBtn.style.display = 'none'; // Hide button after activation
     });
+
+    const statusEl = document.getElementById('connection-status');
+    const RETRY_INTERVAL = 500; // 0.5 seconds
 
     const wsUri = 'ws://' + window.location.host + '/ws';
 	// Screen dimensions will be set by the OBS Browser Source size
@@ -137,6 +163,7 @@
 		const websocket = new WebSocket(wsUri);
 		websocket.onopen = function() {
 			console.log("WebSocket Connected! Ready for media alerts.");
+            statusEl.style.display = 'none'; // Hide error
 		};
 		websocket.onmessage = function(event) {
 			try {
@@ -159,13 +186,20 @@
 				console.error("Error processing WebSocket message:", e);
 			}
 		};
-		websocket.onerror = function(error) {
-			console.error("WebSocket Error:", error);
-		};
-		websocket.onclose = function(event) {
-			console.log("WebSocket Disconnected. Reconnecting in 5 seconds...", event.reason);
-			setTimeout(connectWebSocket, 5000);
-		};
+
+        websocket.onclose = function() {
+            statusEl.style.display = 'block'; // Show error immediately
+            console.log(`Connection lost. Retrying in ${RETRY_INTERVAL}ms...`);
+
+            // Immediate scheduled retry
+            setTimeout(connectWebSocket, RETRY_INTERVAL);
+        };
+
+        websocket.onerror = function(err) {
+            // Log it, but let onclose handle the reconnection logic
+            console.error("Socket encountered error: ", err.message, "Closing socket");
+            websocket.close();
+        };
 	}
 
     function interruptCurrentTTS() {
