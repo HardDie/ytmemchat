@@ -1,5 +1,6 @@
 package config
 
+// Server defines the network configuration for the application.
 type Server struct {
 	Port string
 }

@@ -1,7 +1,8 @@
 package server
 
+// Config defines the network settings for the server.
 type Config struct {
-	Port string
+	Port string // The address/port to bind to (e.g., ":8080")
 }
 
 type PayloadType string
@@ -12,11 +13,11 @@ const (
 	PayloadTypeTTSInterrupt PayloadType = "tts_interrupt"
 )
 
-// WebsocketPayload defines the structure of the websocket payload JSON.
+// WebsocketPayload defines the JSON structure sent to the browser.
 type WebsocketPayload struct {
-	Type     PayloadType `json:"type"`
-	Payload  []byte      `json:"payload"`
-	Filename string      `json:"filename"` // e.g., "new_follower.gif", "cheer_alert.mp4"
-	Volume   float64     `json:"volume"`   // Field for volume (0.0 to 1.0)
-	Scale    float64     `json:"scale"`    // Field for scale multiplier (e.g., 0.5 to 2.0)
+	Type     PayloadType `json:"type"`     // "alert", "tts", or "tts_interrupt"
+	Payload  []byte      `json:"payload"`  // Raw audio data (used for TTS)
+	Filename string      `json:"filename"` // Filename in the media directory (for alerts)
+	Volume   float64     `json:"volume"`   // 0.0 to 1.0
+	Scale    float64     `json:"scale"`    // Visual size multiplier
 }

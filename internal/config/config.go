@@ -1,3 +1,8 @@
+// Package config handles the application configuration by loading environment
+// variables from a .env file or the system environment.
+//
+// It uses a fail-fast approach: if a required variable is missing or
+// malformed, the application will log a fatal error and panic during initialization.
 package config
 
 import (
@@ -12,6 +17,7 @@ import (
 	"github.com/HardDie/ytmemchat/pkg/logger"
 )
 
+// Config holds the centralized configuration for the entire application.
 type Config struct {
 	Alerts  Alerts
 	Server  Server
@@ -20,6 +26,9 @@ type Config struct {
 	Youtube Youtube
 }
 
+// Get initializes and returns the Config struct.
+// It attempts to load a .env file on startup. If the file is missing,
+// it continues to check system environment variables.
 func Get() Config {
 	if err := godotenv.Load(); err != nil {
 		if check := os.IsNotExist(err); !check {

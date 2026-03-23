@@ -1,5 +1,6 @@
 package config
 
+// Alerts contains settings for trigger-based notifications and media paths.
 type Alerts struct {
 	Enabled          bool
 	Token            rune

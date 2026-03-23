@@ -1,3 +1,6 @@
+// Package alerts handles the detection and execution of media-based commands
+// found within chat messages. It parses a YAML configuration of commands
+// and matches them against incoming text using a specific token prefix.
 package alerts
 
 import (
@@ -9,19 +12,27 @@ import (
 	"github.com/HardDie/ytmemchat/pkg/utils"
 )
 
+// Config defines the dependencies and settings required to initialize the Alerts system.
 type Config struct {
-	Token            string
-	MediaPath        string
+	// Token is the character prefix that triggers a command (e.g., "@" or "!").
+	Token string
+	// MediaPath is the local filesystem path where alert media files are stored.
+	MediaPath string
+	// CommandsFilePath is the path to the YAML file defining the available commands.
 	CommandsFilePath string
-	Broadcast        chan server.WebsocketPayload
+	// Broadcast is a channel used to send payloads to the WebSocket server for client-side rendering.
+	Broadcast chan server.WebsocketPayload
 }
 
+// Alerts manages the lifecycle of chat commands and coordinates media broadcasting.
 type Alerts struct {
 	cfg       Config
 	commands  map[string]command
 	broadcast chan server.WebsocketPayload
 }
 
+// New creates a new Alerts instance. It parses the commands YAML file
+// and validates that there are no duplicate command names (case-insensitive).
 func New(cfg Config) (*Alerts, error) {
 	cmd, err := parseCommands(cfg.CommandsFilePath)
 	if err != nil {
@@ -44,6 +55,8 @@ func New(cfg Config) (*Alerts, error) {
 	return &a, nil
 }
 
+// Alert scans a message for a command token. If a valid command is found,
+// it pushes a WebsocketPayload to the broadcast channel and returns true.
 func (a *Alerts) Alert(msg string) bool {
 	token := findToken(a.cfg.Token, msg)
 	if token == "" {
@@ -62,6 +75,8 @@ func (a *Alerts) Alert(msg string) bool {
 	return true
 }
 
+// GetMediaHandler returns an http.Handler configured to serve static files
+// from the media directory under the "/media/" URL prefix.
 func (a *Alerts) GetMediaHandler() http.Handler {
 	mediaDir := http.Dir(a.cfg.MediaPath)
 	mediaHandler := http.StripPrefix("/media/", http.FileServer(mediaDir))

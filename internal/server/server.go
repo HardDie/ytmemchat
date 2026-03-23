@@ -1,3 +1,6 @@
+// Package server provides a real-time web interface and WebSocket hub
+// for the OBS overlay. It serves the HTML/CSS/JS frontend and broadcasts
+// media events (alerts, TTS) to all connected browser sources.
 package server
 
 import (
@@ -10,6 +13,7 @@ import (
 	"github.com/HardDie/ytmemchat/pkg/logger"
 )
 
+// Server represents the HTTP and WebSocket coordinator.
 type Server struct {
 	cfg    Config
 	mux    *http.ServeMux
@@ -17,6 +21,8 @@ type Server struct {
 	logger *slog.Logger
 }
 
+// New initializes the server, registers core routes (/, /ws, /favicon),
+// and starts the background broadcaster goroutine.
 func New(cfg Config) *Server {
 	mux := http.NewServeMux()
 
@@ -56,6 +62,7 @@ func (s *Server) GetBroadcast() chan WebsocketPayload {
 	return broadcast
 }
 
+// Run starts the HTTP server. This is a blocking call.
 func (s *Server) Run() error {
 	s.logger.Info(fmt.Sprintf("serving http server on %s", s.cfg.Port))
 	s.srv.Handler = s.mux
@@ -70,6 +77,7 @@ func (s *Server) Run() error {
 	return nil
 }
 
+// GracefulShutdown ensures all connections are closed cleanly during app termination.
 func (s *Server) GracefulShutdown(_ error) {
 	shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownRelease()

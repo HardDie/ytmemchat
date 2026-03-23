@@ -24,7 +24,8 @@ type youtubeIterator struct {
 	logger       *slog.Logger
 }
 
-// New creates and initializes the YouTube API client.
+// New initializes a new YouTube API client using the provided API key.
+// It returns a Client interface ready to create iterators.
 func New(apiKey string) (Client, error) {
 	ctx := context.Background()
 	service, err := youtube.NewService(ctx, option.WithAPIKey(apiKey))
@@ -42,6 +43,9 @@ type youtubeAPIClient struct {
 	logger  *slog.Logger
 }
 
+// GetMessageIterator fetches the Active Chat ID for the given video,
+// performs an initial poll to skip history, and starts a background
+// goroutine to poll for new messages.
 func (c *youtubeAPIClient) GetMessageIterator(ctx context.Context, liveVideoID string) (MessageIterator, error) {
 	liveChatID, err := c.getLiveChatID(liveVideoID)
 	if err != nil {

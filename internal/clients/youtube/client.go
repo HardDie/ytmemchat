@@ -1,3 +1,6 @@
+// Package youtube provides a client for interacting with YouTube Live Chat.
+// It abstracts the polling logic, pagination, and API-specific data structures
+// into a simple, channel-based iterator.
 package youtube
 
 import (
@@ -5,27 +8,29 @@ import (
 	"time"
 )
 
-// ChatMessage represents the structured data returned by the iterator.
-// This is independent of the YouTube API structure.
+// ChatMessage represents a normalized chat event.
+// It abstracts away the differences between regular text messages,
+// Super Chats, and other event types.
 type ChatMessage struct {
 	ID        string
 	Author    string
-	Message   string
-	Type      string // e.g., "textMessageEvent", "superChatEvent"
+	Message   string // The text content or a formatted string for Super Chats
+	Type      string // The original YouTube event type (e.g., "textMessageEvent")
 	Timestamp time.Time
 }
 
-// Client defines the interface for any live chat source.
-// This is the contract your core application depends on.
+// Client is the primary interface for the YouTube chat service.
 type Client interface {
-	// GetMessageIterator returns an iterator that will continuously poll for new messages.
+	// GetMessageIterator initializes a chat session for a specific video
+	// and returns an iterator to consume messages.
 	GetMessageIterator(ctx context.Context, liveVideoID string) (MessageIterator, error)
 }
 
-// MessageIterator is the core abstraction for consuming messages.
+// MessageIterator provides a way to consume chat messages sequentially.
 type MessageIterator interface {
-	// Next returns the next message. It blocks until a message is available.
-	// It returns (nil, false) if the context is cancelled or the stream ends.
+	// Next blocks until a new message is available or the context is closed.
+	// Returns (nil, false) when the stream ends or is cancelled.
 	Next() (*ChatMessage, bool)
+	// GetChan returns the underlying channel for use in select statements.
 	GetChan() chan *ChatMessage
 }

@@ -1,5 +1,6 @@
 package config
 
+// TTS defines settings for the Text-to-Speech engine.
 type TTS struct {
 	Enabled bool
 	Name    string

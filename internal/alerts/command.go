@@ -7,12 +7,15 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// command represents a single media trigger.
 type command struct {
-	Name   string
-	File   string
-	Volume *float64
-	Scale  *float64
+	Name   string   // The trigger word (without the token)
+	File   string   // The filename in the media directory
+	Volume *float64 // Optional: Audio volume override (0.0 to 1.0)
+	Scale  *float64 // Optional: Visual scale override
 }
+
+// commands is a wrapper for unmarshaling the YAML configuration.
 type commands struct {
 	Commands []command
 }

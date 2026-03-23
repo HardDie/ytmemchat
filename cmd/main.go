@@ -1,3 +1,6 @@
+// Package main is the entry point for the ytmemchat application.
+// It initializes all internal services (YouTube, TTS, Alerts, Webhooks, Server)
+// and manages their execution using an actor-based concurrency model.
 package main
 
 import (
@@ -28,7 +31,19 @@ func main() {
 	os.Exit(gracefulMain())
 }
 
+// gracefulMain handles the startup and shutdown sequence.
+// It returns an exit code (0 for success, 1 for failure) to the OS.
 func gracefulMain() int {
+	// 1. Load Configuration
+	// 2. Initialize Signal Handling (for Ctrl+C/SIGTERM)
+	// 3. Setup Clients (YouTube API)
+	// 4. Initialize Core Services (Alerts, TTS, Webhook)
+	// 5. Start the HTTP/Websocket Server
+	// 6. Run the Main Loop:
+	//    - Listens for messages from YouTube or Webhooks.
+	//    - Checks if a message triggers an Alert.
+	//    - If not an alert, passes the text to the TTS engine.
+
 	cfg := config.Get()
 	ctx, signalHandler := utils.NewSignalHandler(context.Background())
 
