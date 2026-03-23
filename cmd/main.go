@@ -83,13 +83,16 @@ func gracefulMain() int {
 		VoiceName: cfg.TTS.Name,
 		Broadcast: srv.GetBroadcast(),
 	})
-	whService := webhook.New()
+	whService := webhook.New(webhook.Config{
+		Broadcast: srv.GetBroadcast(),
+	})
 
 	if cfg.Alerts.Enabled {
 		srv.RegisterHandle("/media/", al.GetMediaHandler())
 	}
 	if cfg.Webhook.Enabled {
 		srv.RegisterHandleFunc("/webhook/", whService.Handle)
+		srv.RegisterHandleFunc("/interrupt/", whService.InterruptHandle)
 	}
 
 	// Run all background services with graceful shutdown

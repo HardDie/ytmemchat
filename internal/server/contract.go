@@ -7,8 +7,9 @@ type Config struct {
 type PayloadType string
 
 const (
-	PayloadTypeAlert PayloadType = "alert"
-	PayloadTypeTTS   PayloadType = "tts"
+	PayloadTypeAlert        PayloadType = "alert"
+	PayloadTypeTTS          PayloadType = "tts"
+	PayloadTypeTTSInterrupt PayloadType = "tts_interrupt"
 )
 
 // WebsocketPayload defines the structure of the websocket payload JSON.

@@ -109,6 +109,7 @@
     // --- Queue Management ---
     let alertQueue = [];
     let isPlaying = false;
+    let currentTtsSource = null; // Track the active audio node
 
     function addToQueue(data) {
         alertQueue.push(data);
@@ -151,6 +152,8 @@
                 } else if (type === 'tts') {
                     // Instead of calling functions directly, add to queue
                     addToQueue(data);
+                } else if (type === 'tts_interrupt') {
+                    interruptCurrentTTS();
                 }
 			} catch(e) {
 				console.error("Error processing WebSocket message:", e);
@@ -164,6 +167,14 @@
 			setTimeout(connectWebSocket, 5000);
 		};
 	}
+
+    function interruptCurrentTTS() {
+        if (currentTtsSource) {
+            console.log("Interrupting current TTS...");
+            currentTtsSource.stop(); // This triggers source.onended automatically
+            currentTtsSource = null;
+        }
+    }
 	/**
 	 * Creates and displays the media container with all dynamic properties.
 	 * @param {string} filename - The filename from the webhook.
@@ -273,6 +284,9 @@
                 const source = audioContext.createBufferSource();
                 source.buffer = audioBuffer;
 
+                // Store the reference globally so we can .stop() it later
+                currentTtsSource = source;
+
                 // Create and configure Gain
                 const gainNode = audioContext.createGain();
                 gainNode.gain.value = volume;
@@ -282,6 +296,7 @@
                 gainNode.connect(audioContext.destination);
 
                 source.onended = () => {
+                    currentTtsSource = null;
                     onMediaFinished(); // Trigger next in queue
                 };
 
