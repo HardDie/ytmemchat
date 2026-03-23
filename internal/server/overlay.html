@@ -45,6 +45,38 @@
 		width: 100%;
 		height: 100%;
 	}
+
+    #start-btn {
+        /* Positioning logic */
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%); /* Perfectly offsets the button's own width/height */
+        z-index: 9999;
+
+        /* Visual Styling */
+        padding: 20px 40px;
+        font-size: 24px;
+        font-weight: bold;
+        color: white;
+        background: linear-gradient(135deg, #6e8efb, #a777e3);
+        border: none;
+        border-radius: 50px;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        transition: transform 0.2s, box-shadow 0.2s, background 0.3s;
+        z-index: 9999; /* Ensure it's above everything */
+    }
+
+    #start-btn:hover {
+        transform: translate(-50%, -52%) scale(1.05);
+        box-shadow: 0 15px 25px rgba(0, 0, 0, 0.4);
+        filter: brightness(1.1);
+    }
+
+    #start-btn:active {
+        transform: translate(-50%, -48%) scale(0.95);
+    }
 	</style>
 </head>
 
