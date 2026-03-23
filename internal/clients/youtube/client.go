@@ -27,4 +27,5 @@ type MessageIterator interface {
 	// Next returns the next message. It blocks until a message is available.
 	// It returns (nil, false) if the context is cancelled or the stream ends.
 	Next() (*ChatMessage, bool)
+	GetChan() chan *ChatMessage
 }

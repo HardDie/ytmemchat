@@ -109,6 +109,10 @@ func (it *youtubeIterator) Next() (*ChatMessage, bool) {
 	}
 }
 
+func (it *youtubeIterator) GetChan() chan *ChatMessage {
+	return it.messageChan
+}
+
 // startPolling is the goroutine that continually polls the YouTube API.
 func (it *youtubeIterator) startPolling() {
 	defer close(it.messageChan)

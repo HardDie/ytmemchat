@@ -104,6 +104,10 @@ func (it *youtubeIterator) Next() (*clientYoutube.ChatMessage, bool) {
 	}
 }
 
+func (it *youtubeIterator) GetChan() chan *clientYoutube.ChatMessage {
+	return it.messageChan
+}
+
 func (it *youtubeIterator) startPolling() {
 	defer close(it.messageChan)
 	it.logger.Debug(fmt.Sprintf("Starting chat polling for ID: %s", it.liveVideoID))

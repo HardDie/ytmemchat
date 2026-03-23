@@ -16,6 +16,7 @@ type Config struct {
 	Alerts  Alerts
 	Server  Server
 	TTS     TTS
+	Webhook Webhook
 	Youtube Youtube
 }
 
@@ -35,6 +36,7 @@ func Get() Config {
 		Alerts:  alertsConfig(),
 		Server:  serverConfig(),
 		TTS:     ttsConfig(),
+		Webhook: webhookConfig(),
 		Youtube: youtubeConfig(),
 	}
 	return cfg

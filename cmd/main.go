@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/HardDie/ytmemchat/internal/webhook"
 	"github.com/HardDie/ytmemchat/pkg/utils"
 	"github.com/oklog/run"
 
@@ -82,9 +83,13 @@ func gracefulMain() int {
 		VoiceName: cfg.TTS.Name,
 		Broadcast: srv.GetBroadcast(),
 	})
+	whService := webhook.New()
 
 	if cfg.Alerts.Enabled {
 		srv.RegisterHandle("/media/", al.GetMediaHandler())
+	}
+	if cfg.Webhook.Enabled {
+		srv.RegisterHandleFunc("/webhook/", whService.Handle)
 	}
 
 	// Run all background services with graceful shutdown
@@ -97,7 +102,18 @@ func gracefulMain() int {
 					return ctx.Err()
 				}
 
-				message, ok := ytIt.Next()
+				var message *clientYoutube.ChatMessage
+				var ok bool
+
+				select {
+				case message, ok = <-ytIt.GetChan():
+				case message, _ = <-whService.GetChan():
+					// always true
+					ok = true
+				case <-ctx.Done():
+					ok = false
+				}
+				//message, ok := ytIt.Next()
 				if !ok {
 					logger.Error(
 						"Youtube iterator closed. Exit application.",
