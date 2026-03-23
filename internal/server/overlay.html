@@ -159,8 +159,22 @@
     }
     // -------------------------
 
+    let websocket = new WebSocket(wsUri);
 	function connectWebSocket() {
-		const websocket = new WebSocket(wsUri);
+        // 1. Clean up the old socket if it exists
+        if (websocket) {
+            console.log("Cleaning up old WebSocket before reconnecting...");
+            websocket.onopen = null;
+            websocket.onmessage = null;
+            websocket.onerror = null;
+            websocket.onclose = null;
+            websocket.close();
+            websocket = null;
+        }
+
+        // 2. Initialize new connection
+        websocket = new WebSocket(wsUri);
+
 		websocket.onopen = function() {
 			console.log("WebSocket Connected! Ready for media alerts.");
             statusEl.style.display = 'none'; // Hide error
@@ -191,6 +205,8 @@
             statusEl.style.display = 'block'; // Show error immediately
             console.log(`Connection lost. Retrying in ${RETRY_INTERVAL}ms...`);
 
+            // Nullify the reference so the next call knows to clean up
+            websocket = null;
             // Immediate scheduled retry
             setTimeout(connectWebSocket, RETRY_INTERVAL);
         };
@@ -198,7 +214,9 @@
         websocket.onerror = function(err) {
             // Log it, but let onclose handle the reconnection logic
             console.error("Socket encountered error: ", err.message, "Closing socket");
-            websocket.close();
+            // We don't call connectWebSocket here;
+            // websocket.close() will trigger onclose automatically.
+            if (websocket) websocket.close();
         };
 	}
 
@@ -330,6 +348,8 @@
                 gainNode.connect(audioContext.destination);
 
                 source.onended = () => {
+                    source.disconnect();
+                    gainNode.disconnect(); // Explicitly break the connection chain
                     currentTtsSource = null;
                     onMediaFinished(); // Trigger next in queue
                 };
