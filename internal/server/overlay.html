@@ -64,6 +64,32 @@
 	const OBS_HEIGHT = window.innerHeight;
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
+    // --- Queue Management ---
+    let alertQueue = [];
+    let isPlaying = false;
+
+    function addToQueue(data) {
+        alertQueue.push(data);
+        processQueue();
+    }
+
+    function processQueue() {
+        if (isPlaying || alertQueue.length === 0) return;
+
+        isPlaying = true;
+        const nextAlert = alertQueue.shift();
+
+        // Retrieve parameters, using defaults if not provided in the webhook
+        const volume = nextAlert.volume !== undefined ? nextAlert.volume : 0.8;
+        displayTTS(nextAlert.payload, volume)
+    }
+
+    function onMediaFinished() {
+        isPlaying = false;
+        processQueue();
+    }
+    // -------------------------
+
 	function connectWebSocket() {
 		const websocket = new WebSocket(wsUri);
 		websocket.onopen = function() {
@@ -81,7 +107,8 @@
                     // Pass all parameters to the display function
                     displayMediaAlert(filename, volume, scale);
                 } else if (type === 'tts') {
-                    displayTTS(data.payload, volume)
+                    // Instead of calling functions directly, add to queue
+                    addToQueue(data);
                 }
 			} catch(e) {
 				console.error("Error processing WebSocket message:", e);
@@ -206,10 +233,15 @@
                 source.connect(gainNode);
                 gainNode.connect(audioContext.destination);
 
+                source.onended = () => {
+                    onMediaFinished(); // Trigger next in queue
+                };
+
                 source.start(0);
             })
             .catch((err) => {
                 console.error("Error decoding TTS audio:", err);
+                onMediaFinished();
             });
     }
 
