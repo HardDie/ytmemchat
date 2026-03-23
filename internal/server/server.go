@@ -35,6 +35,8 @@ func New(cfg Config) *Server {
 	mux.HandleFunc("/", htmlHandler)
 	// WebSocket Route: Handles real-time client connections
 	mux.HandleFunc("/ws", srv.wsHandler)
+	// Favicon path
+	mux.HandleFunc("/favicon.ico", faviconHandler)
 
 	// Start the broadcaster in a goroutine
 	go srv.broadcaster()

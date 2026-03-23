@@ -107,6 +107,20 @@
     <div id="connection-status">⚠️ WEB SOCKET DISCONNECTED - RETRYING...</div>
 
 	<script>
+    // --- Global Safety Net ---
+    window.onerror = function(msg, url, line) {
+        console.error(`CRITICAL ERROR: ${msg} at ${line}`);
+        // Delay reload by 5s so you have time to see the error in DevTools
+        // and to prevent a high-speed refresh loop.
+        setTimeout(() => { location.reload(); }, 5000);
+        return false;
+    };
+
+    window.onunhandledrejection = function(event) {
+        console.error("PROMISE REJECTION:", event.reason);
+        setTimeout(() => { location.reload(); }, 5000);
+    };
+
     const startBtn = document.getElementById('start-btn');
     let audioContext;
     startBtn.addEventListener('click', async () => {
@@ -122,6 +136,11 @@
 
         console.log('AudioContext is active:', audioContext.state);
         startBtn.style.display = 'none'; // Hide button after activation
+
+        console.log("Settling browser environment before connecting...");
+        setTimeout(() => {
+            connectWebSocket();
+        }, 300); // 300ms is usually enough for Chrome to clear the previous socket
     });
 
     const statusEl = document.getElementById('connection-status');
@@ -368,7 +387,6 @@
 			container.remove();
 		}, 500); // Wait for transition duration before removing
 	}
-	connectWebSocket();
 	</script>
 </body>
 
