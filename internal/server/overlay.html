@@ -49,11 +49,20 @@
 </head>
 
 <body>
+    <button id="start-btn">Enable Audio & Connect</button>
+
 	<script>
+    const startBtn = document.getElementById('start-btn');
+    startBtn.addEventListener('click', () => {
+        console.log('Playback resumed successfully');
+        startBtn.style.display = 'none'; // Hide button after activation
+    });
+
     const wsUri = 'ws://' + window.location.host + '/ws';
 	// Screen dimensions will be set by the OBS Browser Source size
 	const OBS_WIDTH = window.innerWidth;
 	const OBS_HEIGHT = window.innerHeight;
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
 	function connectWebSocket() {
 		const websocket = new WebSocket(wsUri);
@@ -72,7 +81,7 @@
                     // Pass all parameters to the display function
                     displayMediaAlert(filename, volume, scale);
                 } else if (type === 'tts') {
-                    displayTTS(volume);
+                    displayTTS(data.payload, volume)
                 }
 			} catch(e) {
 				console.error("Error processing WebSocket message:", e);
@@ -174,17 +183,34 @@
 			handleMediaLoad();
 		}
 	}
-    function displayTTS(volume) {
-        const mediaUrl = '/playback';
-        const audioElement = document.createElement('audio');
-        audioElement.src = mediaUrl;
-        audioElement.autoplay = true;
-        audioElement.volume = volume;
-        document.body.appendChild(audioElement);
-        // Removal logic based on playback end
-        audioElement.onended = () => {
-            audioElement.remove();
-        };
+    function displayTTS(payload, volume) {
+        // 1. Convert Base64 string back to binary (ArrayBuffer)
+        const binaryString = atob(payload);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        // 2. Use Web Audio API to play
+        audioContext.decodeAudioData(bytes.buffer)
+            .then((audioBuffer) => {
+                const source = audioContext.createBufferSource();
+                source.buffer = audioBuffer;
+
+                // Create and configure Gain
+                const gainNode = audioContext.createGain();
+                gainNode.gain.value = volume;
+
+                // Routing: Source -> Gain -> Destination
+                source.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                source.start(0);
+            })
+            .catch((err) => {
+                console.error("Error decoding TTS audio:", err);
+            });
     }
 
 	function removeMediaElement(container) {

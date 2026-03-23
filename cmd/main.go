@@ -37,7 +37,7 @@ func gracefulMain() int {
 
 	var err error
 	var yt clientYoutube.Client
-	if !true {
+	if true {
 		yt, err = clientYoutube.New(cfg.Youtube.APIKey)
 		if err != nil {
 			logger.Error(
@@ -85,9 +85,6 @@ func gracefulMain() int {
 
 	if cfg.Alerts.Enabled {
 		srv.RegisterHandle("/media/", al.GetMediaHandler())
-	}
-	if cfg.TTS.Enabled {
-		srv.RegisterHandleFunc("/playback", ttsService.GetPlaybackHandler)
 	}
 
 	// Run all background services with graceful shutdown

@@ -5,7 +5,6 @@ package tts
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -35,7 +34,7 @@ func speak(text string, voiceName string) error {
 // synthesize implements the audio generation for Windows.
 func synthesize(text string, voiceName string) ([]byte, string, error) {
 	// 1. Create a temporary file path
-	tempFile, err := ioutil.TempFile("", "tts_audio_*.wav")
+	tempFile, err := os.CreateTemp("", "tts_audio_*.wav")
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create temp file: %w", err)
 	}
@@ -63,13 +62,10 @@ func synthesize(text string, voiceName string) ([]byte, string, error) {
 	}
 
 	// 3. Read the WAV file into the buffer
-	audioData, err := ioutil.ReadFile(tempFilePath)
+	audioData, err := os.ReadFile(tempFilePath)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to read temp audio file: %w", err)
 	}
-
-	// CRITICAL: Call the private setter function instead of returning data
-	setSynthesizedAudio(audioData, "wav")
 
 	return audioData, "wav", nil
 }

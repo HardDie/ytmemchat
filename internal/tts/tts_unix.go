@@ -4,7 +4,6 @@ package tts
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"regexp"
@@ -39,7 +38,7 @@ func synthesize(text string, voiceName string) ([]byte, string, error) {
 	var finalFilePath string
 
 	// 1. Create a temporary file path with the target extension
-	tempFile, err := ioutil.TempFile("", "tts_audio_*.wav")
+	tempFile, err := os.CreateTemp("", "tts_audio_*.wav")
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create temp file: %w", err)
 	}
@@ -79,7 +78,7 @@ func synthesize(text string, voiceName string) ([]byte, string, error) {
 	}
 
 	// 4. Read the file into the buffer
-	audioData, err := ioutil.ReadFile(finalFilePath)
+	audioData, err := os.ReadFile(finalFilePath)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to read synthesized audio file: %w", err)
 	}
@@ -87,9 +86,6 @@ func synthesize(text string, voiceName string) ([]byte, string, error) {
 	if len(audioData) == 0 {
 		return nil, "", fmt.Errorf("synthesized audio file is empty")
 	}
-
-	// CRITICAL: Call the private setter function instead of returning data
-	setSynthesizedAudio(audioData, format)
 
 	return audioData, format, nil
 }
