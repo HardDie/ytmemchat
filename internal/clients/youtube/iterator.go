@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/HardDie/ytmemchat/pkg/logger"
@@ -138,6 +139,10 @@ func (it *youtubeIterator) startPolling() {
 			Do()
 
 		if err != nil {
+			if strings.Contains(err.Error(), "liveChatEnded") {
+				it.logger.Info("The live chat is no longer live")
+				return
+			}
 			it.logger.Error(fmt.Sprintf("Error polling API: %v. Retrying in %s.", err, it.pollingDelay))
 			continue
 		}
