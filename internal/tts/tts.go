@@ -5,7 +5,9 @@ package tts
 
 import (
 	"fmt"
+	"regexp"
 	"runtime"
+	"strings"
 
 	"github.com/HardDie/ytmemchat/internal/server"
 	"github.com/HardDie/ytmemchat/pkg/utils"
@@ -48,7 +50,7 @@ func SynthesizeToBuffer(text string, voiceName string) ([]byte, string, error) {
 // via the WebSocket channel for remote client playback.
 func (t *TTS) SynthesizeAudio(text string) error {
 	// The actual implementation is provided by tts_windows.go or tts_unix.go
-	audioData, _, err := synthesize(text, t.cfg.VoiceName)
+	audioData, _, err := synthesize(removeEmojis(text), t.cfg.VoiceName)
 	if err != nil {
 		return fmt.Errorf("synthesis failed: %w", err)
 	}
@@ -58,4 +60,21 @@ func (t *TTS) SynthesizeAudio(text string) error {
 		Volume:  utils.FromPtr(t.cfg.Volume, 1),
 	}
 	return nil
+}
+
+// \p{So} - Symbol, Other (Most emojis)
+// \p{Sk} - Symbol, Modifier (Skin tones, etc.)
+// \p{Mn} - Mark, Nonspacing
+// \p{Cs} - Surrogate
+// \p{Sm} - Symbol, Math (Optional: remove if you want to strip math symbols too)
+// We use a character class to catch these.
+var emojiRegex = regexp.MustCompile(`[\p{So}\p{Sk}\p{Mn}\p{Cs}\p{Sm}]`)
+
+// RemoveEmojis takes a string and returns it without Unicode emoji characters.
+func removeEmojis(input string) string {
+	// Remove the emoji-related characters
+	content := emojiRegex.ReplaceAllString(input, "")
+
+	// Clean up extra whitespace left behind and trim
+	return strings.TrimSpace(strings.Join(strings.Fields(content), " "))
 }
