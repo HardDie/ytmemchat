@@ -1,7 +1,6 @@
 package chat
 
 import (
-	"html"
 	"log/slog"
 
 	clientYoutube "github.com/HardDie/ytmemchat/internal/clients/youtube"
@@ -25,10 +24,11 @@ func New() *Chat {
 }
 
 func (c *Chat) Message(msg *clientYoutube.ChatMessage) {
+	// html.EscapeString()
 	broadcast <- WebsocketPayload{
-		AuthorName:    html.EscapeString(msg.Author),
+		AuthorName:    msg.Author,
 		AuthorPicture: "",
-		MessageText:   html.EscapeString(msg.Message),
+		MessageText:   msg.Message,
 		PublishedAt:   msg.Timestamp.String(),
 		IsModerator:   false,
 		IsOwner:       false,

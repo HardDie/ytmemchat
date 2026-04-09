@@ -51,7 +51,16 @@
             border: 1px solid var(--accent-color);
         }
 
-        .content { font-size: var(--font-size); }
+        .content {
+            font-size: var(--font-size);
+
+            /* This is the magic line */
+            word-break: break-word;
+            overflow-wrap: anywhere;
+
+            /* Optional: helps with alignment if the message is very long */
+            display: inline;
+        }
 
         .author {
             font-weight: 700;
@@ -151,19 +160,32 @@
                 const div = document.createElement('div');
                 div.className = 'message-row';
 
-                const modBadge = msg.isModerator ? '<span class="badge">Mod</span>' : '';
-                const ownerBadge = msg.isOwner ? '<span class="badge" style="background:#ffd700; color:black">Host</span>' : '';
+                // Create elements manually to ensure text is escaped
+                // const avatar = document.createElement('img');
+                // avatar.className = 'avatar';
+                // avatar.src = msg.authorPicture;
 
-                div.innerHTML = `
-                <!-- <img class="avatar" src="${msg.authorPicture}"> -->
-                <div class="content">
-                    ${ownerBadge}${modBadge}
-                    <span class="author">${msg.authorName}:</span>
-                    <span class="text">${msg.messageText}</span>
-                </div>
-            `;
+                const content = document.createElement('div');
+                content.className = 'content';
 
-                // Use prepend to add the newest message to the start of the list
+                // Badges (controlled by your server, so these are safe)
+                if (msg.isOwner) content.innerHTML += '<span class="badge" style="background:#ffd700; color:black">Host</span>';
+                if (msg.isModerator) content.innerHTML += '<span class="badge">Mod</span>';
+
+                const authorSpan = document.createElement('span');
+                authorSpan.className = 'author';
+                authorSpan.textContent = msg.authorName + ": "; // Safe escaping
+
+                const textSpan = document.createElement('span');
+                textSpan.className = 'text';
+                textSpan.textContent = msg.messageText; // Safe escaping
+
+                content.appendChild(authorSpan);
+                content.appendChild(textSpan);
+
+                // div.appendChild(avatar);
+                div.appendChild(content);
+
                 container.prepend(div);
             }
 
