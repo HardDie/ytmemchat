@@ -72,13 +72,46 @@
             from { opacity: 0; transform: translateY(-10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        #connection-status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-family: sans-serif;
+            font-size: 14px;
+            font-weight: bold;
+            color: white;
+            background-color: rgba(255, 0, 0, 0.7); /* Red for disconnected */
+            display: none; /* Hidden by default when connected */
+            z-index: 10001;
+            pointer-events: none; /* Don't interfere with clicks */
+        }
     </style>
 </head>
 <body>
     <div id="chat-container"></div>
+    <div id="connection-status">⚠️ WEB SOCKET DISCONNECTED - RETRYING...</div>
 
     <script>
+        // --- Global Safety Net ---
+        window.onerror = function(msg, url, line) {
+            console.error(`CRITICAL ERROR: ${msg} at ${line}`);
+            // Delay reload by 5s so you have time to see the error in DevTools
+            // and to prevent a high-speed refresh loop.
+            setTimeout(() => { location.reload(); }, 5000);
+            return false;
+        };
+
+        window.onunhandledrejection = function(event) {
+            console.error("PROMISE REJECTION:", event.reason);
+            setTimeout(() => { location.reload(); }, 5000);
+        };
+
         const wsUri = 'ws://' + window.location.host + '/ws_chat';
+        const statusEl = document.getElementById('connection-status');
+        const RETRY_INTERVAL = 500; // 0.5 seconds
 
         const params = new URLSearchParams(window.location.search);
         if (params.get('fontSize')) {
@@ -91,18 +124,37 @@
             document.body.classList.add('transparent');
         }
 
-        const container = document.getElementById('chat-container');
-        let socket = new WebSocket(wsUri);
+        let websocket = new WebSocket(wsUri);
+        function connectWebSocket() {
+            // 1. Clean up the old socket if it exists
+            if (websocket) {
+                console.log("Cleaning up old WebSocket before reconnecting...");
+                websocket.onopen = null;
+                websocket.onmessage = null;
+                websocket.onerror = null;
+                websocket.onclose = null;
+                websocket.close();
+                websocket = null;
+            }
 
-        socket.onmessage = function(event) {
-            const msg = JSON.parse(event.data);
-            const div = document.createElement('div');
-            div.className = 'message-row';
-            
-            const modBadge = msg.isModerator ? '<span class="badge">Mod</span>' : '';
-            const ownerBadge = msg.isOwner ? '<span class="badge" style="background:#ffd700; color:black">Host</span>' : '';
+            // 2. Initialize new connection
+            websocket = new WebSocket(wsUri);
 
-            div.innerHTML = `
+            websocket.onopen = function() {
+                console.log("WebSocket Connected! Ready for media alerts.");
+                statusEl.style.display = 'none'; // Hide error
+            };
+            websocket.onmessage = function(event) {
+                const container = document.getElementById('chat-container');
+
+                const msg = JSON.parse(event.data);
+                const div = document.createElement('div');
+                div.className = 'message-row';
+
+                const modBadge = msg.isModerator ? '<span class="badge">Mod</span>' : '';
+                const ownerBadge = msg.isOwner ? '<span class="badge" style="background:#ffd700; color:black">Host</span>' : '';
+
+                div.innerHTML = `
                 <!-- <img class="avatar" src="${msg.authorPicture}"> -->
                 <div class="content">
                     ${ownerBadge}${modBadge}
@@ -110,10 +162,33 @@
                     <span class="text">${msg.messageText}</span>
                 </div>
             `;
-            
-            // Use prepend to add the newest message to the start of the list
-            container.prepend(div);
-        };
+
+                // Use prepend to add the newest message to the start of the list
+                container.prepend(div);
+            }
+
+            websocket.onclose = function() {
+                statusEl.style.display = 'block'; // Show error immediately
+                console.log(`Connection lost. Retrying in ${RETRY_INTERVAL}ms...`);
+
+                // Nullify the reference so the next call knows to clean up
+                websocket = null;
+                // Immediate scheduled retry
+                setTimeout(connectWebSocket, RETRY_INTERVAL);
+            };
+
+            websocket.onerror = function(err) {
+                // Log it, but let onclose handle the reconnection logic
+                console.error("Socket encountered error: ", err.message, "Closing socket");
+                // We don't call connectWebSocket here;
+                // websocket.close() will trigger onclose automatically.
+                if (websocket) websocket.close();
+            };
+        }
+
+        setTimeout(() => {
+            connectWebSocket();
+        }, 300); // 300ms is usually enough for Chrome to clear the previous socket
     </script>
 </body>
 </html>
