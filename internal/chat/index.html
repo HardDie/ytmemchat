@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ytmemchat</title>
+    <style>
+        :root {
+            --bg-color: #18181b;
+            --text-color: #efeff1;
+            --accent-color: #9147ff;
+            --font-size: 16px;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            overflow: hidden;
+        }
+
+        body.transparent { background-color: transparent !important; }
+
+        #chat-container {
+            display: flex;
+            /* Changed to column-reverse to keep new items at the top */
+            flex-direction: column-reverse; 
+            height: 100vh;
+            padding: 10px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        .message-row {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            /* Animation slightly adjusted for top-entry */
+            animation: slideDown 0.3s ease;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px;
+            border-radius: 6px;
+            flex-shrink: 0;
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            margin-right: 12px;
+            border: 1px solid var(--accent-color);
+        }
+
+        .content { font-size: var(--font-size); }
+
+        .author {
+            font-weight: 700;
+            color: var(--accent-color);
+            margin-right: 8px;
+        }
+
+        .badge {
+            font-size: 0.7em;
+            padding: 2px 5px;
+            border-radius: 4px;
+            background: #e91916;
+            margin-right: 5px;
+            text-transform: uppercase;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div id="chat-container"></div>
+
+    <script>
+        const wsUri = 'ws://' + window.location.host + '/ws_chat';
+
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('fontSize')) {
+            document.documentElement.style.setProperty('--font-size', params.get('fontSize'));
+        }
+        if (params.get('textColor')) {
+            document.documentElement.style.setProperty('--text-color', '#' + params.get('textColor'));
+        }
+        if (params.get('transparent') === 'true') {
+            document.body.classList.add('transparent');
+        }
+
+        const container = document.getElementById('chat-container');
+        let socket = new WebSocket(wsUri);
+
+        socket.onmessage = function(event) {
+            const msg = JSON.parse(event.data);
+            const div = document.createElement('div');
+            div.className = 'message-row';
+            
+            const modBadge = msg.isModerator ? '<span class="badge">Mod</span>' : '';
+            const ownerBadge = msg.isOwner ? '<span class="badge" style="background:#ffd700; color:black">Host</span>' : '';
+
+            div.innerHTML = `
+                <!-- <img class="avatar" src="${msg.authorPicture}"> -->
+                <div class="content">
+                    ${ownerBadge}${modBadge}
+                    <span class="author">${msg.authorName}:</span>
+                    <span class="text">${msg.messageText}</span>
+                </div>
+            `;
+            
+            // Use prepend to add the newest message to the start of the list
+            container.prepend(div);
+        };
+    </script>
+</body>
+</html>

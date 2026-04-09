@@ -14,6 +14,7 @@ import (
 	"github.com/oklog/run"
 
 	"github.com/HardDie/ytmemchat/internal/alerts"
+	"github.com/HardDie/ytmemchat/internal/chat"
 	clientYoutube "github.com/HardDie/ytmemchat/internal/clients/youtube"
 	clientYoutubeV1 "github.com/HardDie/ytmemchat/internal/clients/youtubev1"
 	"github.com/HardDie/ytmemchat/internal/config"
@@ -98,6 +99,7 @@ func gracefulMain() int {
 		VoiceName: cfg.TTS.Name,
 		Broadcast: srv.GetBroadcast(),
 	})
+	chatService := chat.New()
 	whService := webhook.New(webhook.Config{
 		Broadcast: srv.GetBroadcast(),
 	})
@@ -109,6 +111,8 @@ func gracefulMain() int {
 		srv.RegisterHandleFunc("/webhook/", whService.Handle)
 		srv.RegisterHandleFunc("/interrupt/", whService.InterruptHandle)
 	}
+	srv.RegisterHandleFunc("/ws_chat", chatService.WSHandler)
+	srv.RegisterHandleFunc("/chat", chatService.HTMLHandler)
 
 	// Run all background services with graceful shutdown
 	var g run.Group
@@ -145,6 +149,9 @@ func gracefulMain() int {
 					message.Author,
 					message.Message,
 				))
+
+				// Display message in chat window
+				chatService.Message(message)
 
 				if cfg.Alerts.Enabled {
 					if al.Alert(message.Message) {
