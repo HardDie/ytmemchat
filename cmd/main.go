@@ -5,12 +5,16 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
 
+	"github.com/HardDie/ytmemchat/internal/tts"
 	"github.com/HardDie/ytmemchat/internal/webhook"
 	"github.com/HardDie/ytmemchat/pkg/utils"
+	"github.com/HardDie/ytmemchat/pkg/watermill"
+	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/oklog/run"
 
 	"github.com/HardDie/ytmemchat/internal/alerts"
@@ -19,7 +23,6 @@ import (
 	clientYoutubeV1 "github.com/HardDie/ytmemchat/internal/clients/youtubev1"
 	"github.com/HardDie/ytmemchat/internal/config"
 	"github.com/HardDie/ytmemchat/internal/server"
-	"github.com/HardDie/ytmemchat/internal/tts"
 	"github.com/HardDie/ytmemchat/pkg/logger"
 )
 
@@ -52,7 +55,19 @@ func gracefulMain() int {
 		Port: cfg.Server.Port,
 	})
 
-	var err error
+	// Init pub/sub service
+	pubsub, err := watermill.New(watermill.Config{
+		Debug: false,
+		Trace: false,
+	})
+	if err != nil {
+		logger.Error(
+			"failed to init pubsub",
+			slog.String(logger.LogValueError, err.Error()),
+		)
+		return exitFailure
+	}
+
 	var yt clientYoutube.Client
 	if true {
 		yt, err = clientYoutube.New(cfg.Youtube.APIKey)
@@ -114,68 +129,153 @@ func gracefulMain() int {
 	srv.RegisterHandleFunc("/ws_chat", chatService.WSHandler)
 	srv.RegisterHandleFunc("/chat", chatService.HTMLHandler)
 
+	pubsub.RegisterHandler("chat", watermill.TopicMessageRaw, func(msg *message.Message) error {
+		var m *clientYoutube.ChatMessage
+		err := json.Unmarshal(msg.Payload, &m)
+		if err != nil {
+			return fmt.Errorf("json.Unmarshal(): %w", err)
+		}
+		chatService.Message(m)
+		return nil
+	})
+	if cfg.Alerts.Enabled {
+		pubsub.RegisterHandler("mem_alert", watermill.TopicMessageRaw, func(msg *message.Message) error {
+			ctx := msg.Context()
+
+			var m *clientYoutube.ChatMessage
+			err := json.Unmarshal(msg.Payload, &m)
+			if err != nil {
+				return fmt.Errorf("json.Unmarshal(): %w", err)
+			}
+
+			if al.Alert(m.Message) {
+				// Alert has been found
+				return nil
+			}
+
+			err = pubsub.Publish(ctx, watermill.TopicMessageNoAlert, m)
+			if err != nil {
+				return fmt.Errorf("p.Publish(%v): %w", watermill.TopicMessageNoAlert, err)
+			}
+			return nil
+		})
+	} else {
+		pubsub.RegisterHandler("mem_alert_passthrough", watermill.TopicMessageRaw, func(msg *message.Message) error {
+			ctx := msg.Context()
+
+			var m *clientYoutube.ChatMessage
+			err := json.Unmarshal(msg.Payload, &m)
+			if err != nil {
+				return fmt.Errorf("json.Unmarshal(): %w", err)
+			}
+
+			err = pubsub.Publish(ctx, watermill.TopicMessageNoAlert, m)
+			if err != nil {
+				return fmt.Errorf("p.Publish(%v): %w", watermill.TopicMessageNoAlert, err)
+			}
+			return nil
+		})
+	}
+	if cfg.TTS.Enabled {
+		pubsub.RegisterHandler("tts", watermill.TopicMessageNoAlert, func(msg *message.Message) error {
+			var m *clientYoutube.ChatMessage
+			err := json.Unmarshal(msg.Payload, &m)
+			if err != nil {
+				return fmt.Errorf("json.Unmarshal(): %w", err)
+			}
+
+			err = ttsService.SynthesizeAudio(m.Message)
+			if err != nil {
+				logger.Error(
+					"failed to speak message",
+					slog.String(logger.LogValueError, err.Error()),
+					slog.String(logger.LogMessage, m.Message),
+					slog.String(logger.LogTTSName, cfg.TTS.Name),
+				)
+			}
+			return nil
+		})
+	}
+
 	// Run all background services with graceful shutdown
 	var g run.Group
 	g.Add(srv.Run, srv.GracefulShutdown)
-	g.Add(
-		func() error {
-			for {
-				if ctx.Err() != nil {
-					return ctx.Err()
-				}
-
-				var message *clientYoutube.ChatMessage
-				var ok bool
-
-				select {
-				case message, ok = <-ytIt.GetChan():
-				case message, _ = <-whService.GetChan():
-					// always true
-					ok = true
-				case <-ctx.Done():
-					ok = false
-				}
-				//message, ok := ytIt.Next()
-				if !ok {
-					logger.Error(
-						"Youtube iterator closed. Exit application.",
-					)
-					break
-				}
-				logger.Debug(fmt.Sprintf(
-					"[%s | %s] %s: %s",
-					message.Timestamp.Format("15:04:05"),
-					message.Type,
-					message.Author,
-					message.Message,
-				))
-
-				// Display message in chat window
-				chatService.Message(message)
-
-				if cfg.Alerts.Enabled {
-					if al.Alert(message.Message) {
-						// Do not pronounce messages with alert token.
-						continue
-					}
-				}
-
-				if cfg.TTS.Enabled {
-					err = ttsService.SynthesizeAudio(message.Message)
-					if err != nil {
-						logger.Error(
-							"failed to speak message",
-							slog.String(logger.LogValueError, err.Error()),
-							slog.String(logger.LogMessage, message.Message),
-							slog.String(logger.LogTTSName, cfg.TTS.Name),
-						)
-					}
-				}
+	// Processing messages from YouTube client
+	g.Add(func() error {
+		for {
+			if ctx.Err() != nil {
+				return ctx.Err()
 			}
-			return nil
-		},
-		func(err error) {},
-	)
+
+			var message *clientYoutube.ChatMessage
+			var ok bool
+
+			select {
+			case message, ok = <-ytIt.GetChan():
+			case <-ctx.Done():
+				ok = false
+			}
+			if !ok {
+				logger.Error(
+					"Youtube iterator closed. Exit application.",
+				)
+				break
+			}
+			logger.Debug(fmt.Sprintf(
+				"[%s | %s] %s: %s",
+				message.Timestamp.Format("15:04:05"),
+				message.Type,
+				message.Author,
+				message.Message,
+			))
+
+			e := pubsub.Publish(ctx, watermill.TopicMessageRaw, message)
+			if e != nil {
+				return fmt.Errorf("p.Publish(%v): %w", watermill.TopicMessageRaw, e)
+			}
+		}
+		return nil
+	}, func(err error) {})
+	// Process messages from webhooks
+	g.Add(func() error {
+		for {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+
+			var message *clientYoutube.ChatMessage
+			var ok bool
+
+			select {
+			case message, _ = <-whService.GetChan():
+				// always true
+				ok = true
+			case <-ctx.Done():
+				ok = false
+			}
+
+			if !ok {
+				logger.Error(
+					"Youtube iterator closed. Exit application.",
+				)
+				break
+			}
+			logger.Debug(fmt.Sprintf(
+				"[%s | %s] %s: %s",
+				message.Timestamp.Format("15:04:05"),
+				message.Type,
+				message.Author,
+				message.Message,
+			))
+
+			e := pubsub.Publish(ctx, watermill.TopicMessageRaw, message)
+			if e != nil {
+				return fmt.Errorf("p.Publish(%v): %w", watermill.TopicMessageRaw, e)
+			}
+		}
+		return nil
+	}, func(error) {})
+	g.Add(pubsub.Run, pubsub.GracefulShutdown)
 	g.Add(signalHandler.Run, signalHandler.GracefulShutdown)
 
 	// Working!
