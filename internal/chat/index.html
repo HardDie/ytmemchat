@@ -29,6 +29,15 @@
             padding: 10px;
             box-sizing: border-box;
             overflow-y: auto;
+
+            /* HIDE SCROLLBAR LOGIC */
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;     /* Firefox */
+        }
+
+        /* HIDE SCROLLBAR LOGIC (Chrome/Safari) */
+        #chat-container::-webkit-scrollbar {
+            display: none;
         }
 
         .message-row {
