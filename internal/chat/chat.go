@@ -27,7 +27,7 @@ func (c *Chat) Message(msg *clientYoutube.ChatMessage) {
 	// html.EscapeString()
 	broadcast <- WebsocketPayload{
 		AuthorName:    msg.Author,
-		AuthorPicture: "",
+		AuthorPicture: msg.ImgURL,
 		MessageText:   msg.Message,
 		PublishedAt:   msg.Timestamp.String(),
 		IsModerator:   false,

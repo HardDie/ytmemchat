@@ -14,6 +14,7 @@ import (
 type ChatMessage struct {
 	ID        string
 	Author    string
+	ImgURL    string
 	Message   string // The text content or a formatted string for Super Chats
 	Type      string // The original YouTube event type (e.g., "textMessageEvent")
 	Timestamp time.Time

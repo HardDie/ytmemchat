@@ -199,6 +199,7 @@ func convertToChatMessage(ym *youtube.LiveChatMessage) *ChatMessage {
 	return &ChatMessage{
 		ID:        ym.Id,
 		Author:    ym.AuthorDetails.DisplayName,
+		ImgURL:    ym.AuthorDetails.ProfileImageUrl,
 		Message:   message,
 		Type:      ym.Snippet.Type,
 		Timestamp: timestamp,

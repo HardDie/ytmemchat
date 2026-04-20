@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="referrer" content="no-referrer">
     <title>ytmemchat</title>
     <style>
         :root {
@@ -50,6 +51,7 @@
             padding: 8px;
             border-radius: 6px;
             flex-shrink: 0;
+            transition: opacity 0.2s ease-in;
         }
 
         .avatar {
@@ -170,9 +172,15 @@
                 div.className = 'message-row';
 
                 // Create elements manually to ensure text is escaped
-                // const avatar = document.createElement('img');
-                // avatar.className = 'avatar';
-                // avatar.src = msg.authorPicture;
+                const avatar = document.createElement('img');
+                avatar.className = 'avatar';
+                // Logic: Use provided picture, or generate one if missing/placeholder
+                if (msg.authorPicture && !msg.authorPicture.includes('placeholder')) {
+                    avatar.referrerPolicy = "no-referrer";
+                    avatar.src = msg.authorPicture;
+                } else {
+                    avatar.src = generateAvatar(msg.authorName || "?");
+                }
 
                 const content = document.createElement('div');
                 content.className = 'content';
@@ -192,7 +200,7 @@
                 content.appendChild(authorSpan);
                 content.appendChild(textSpan);
 
-                // div.appendChild(avatar);
+                div.appendChild(avatar);
                 div.appendChild(content);
 
                 container.prepend(div);
@@ -215,6 +223,35 @@
                 // websocket.close() will trigger onclose automatically.
                 if (websocket) websocket.close();
             };
+        }
+
+        // Function to generate an avatar with initials
+        function generateAvatar(name) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+
+            // Generate a consistent color based on the name
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) {
+                hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const color = `hsl(${hash % 360}, 60%, 45%)`;
+
+            // Draw background
+            ctx.fillStyle = color;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw text
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 32px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const initial = name.charAt(0).toUpperCase();
+            ctx.fillText(initial, canvas.width / 2, canvas.height / 2);
+
+            return canvas.toDataURL();
         }
 
         setTimeout(() => {
