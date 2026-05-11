@@ -171,34 +171,8 @@
                 const div = document.createElement('div');
                 div.className = 'message-row';
 
-                // Create elements manually to ensure text is escaped
-                const avatar = document.createElement('img');
-                avatar.className = 'avatar';
-                // Logic: Use provided picture, or generate one if missing/placeholder
-                if (msg.authorPicture && !msg.authorPicture.includes('placeholder')) {
-                    avatar.referrerPolicy = "no-referrer";
-                    avatar.src = msg.authorPicture;
-                } else {
-                    avatar.src = generateAvatar(msg.authorName || "?");
-                }
-
-                const content = document.createElement('div');
-                content.className = 'content';
-
-                // Badges (controlled by your server, so these are safe)
-                if (msg.isOwner) content.innerHTML += '<span class="badge" style="background:#ffd700; color:black">Host</span>';
-                if (msg.isModerator) content.innerHTML += '<span class="badge">Mod</span>';
-
-                const authorSpan = document.createElement('span');
-                authorSpan.className = 'author';
-                authorSpan.textContent = msg.authorName + ": "; // Safe escaping
-
-                const textSpan = document.createElement('span');
-                textSpan.className = 'text';
-                textSpan.textContent = msg.messageText; // Safe escaping
-
-                content.appendChild(authorSpan);
-                content.appendChild(textSpan);
+                const avatar = buildAvatarElement(msg);
+                const content = buildContentElement(msg);
 
                 div.appendChild(avatar);
                 div.appendChild(content);
@@ -223,6 +197,50 @@
                 // websocket.close() will trigger onclose automatically.
                 if (websocket) websocket.close();
             };
+        }
+
+
+        setTimeout(() => {
+            connectWebSocket();
+        }, 300); // 300ms is usually enough for Chrome to clear the previous socket
+    </script>
+
+    <script>
+        // helpers
+        function buildAvatarElement(msg) {
+            const avatar = document.createElement('img');
+            avatar.className = 'avatar';
+            // Logic: Use provided picture, or generate one if missing/placeholder
+            if (msg.authorPicture && !msg.authorPicture.includes('placeholder')) {
+                avatar.referrerPolicy = "no-referrer";
+                avatar.src = msg.authorPicture;
+            } else {
+                avatar.src = generateAvatar(msg.authorName || "?");
+            }
+            return avatar
+        }
+
+        function buildContentElement(msg) {
+            // Create elements manually to ensure text is escaped
+            const content = document.createElement('div');
+            content.className = 'content';
+
+            // Badges (controlled by your server, so these are safe)
+            if (msg.isOwner) content.innerHTML += '<span class="badge" style="background:#ffd700; color:black">Host</span>';
+            if (msg.isModerator) content.innerHTML += '<span class="badge">Mod</span>';
+
+            const authorSpan = document.createElement('span');
+            authorSpan.className = 'author';
+            authorSpan.textContent = msg.authorName + ": "; // Safe escaping
+
+            const textSpan = document.createElement('span');
+            textSpan.className = 'text';
+            textSpan.textContent = msg.messageText; // Safe escaping
+
+            content.appendChild(authorSpan);
+            content.appendChild(textSpan);
+
+            return content;
         }
 
         // Function to generate an avatar with initials
@@ -253,10 +271,6 @@
 
             return canvas.toDataURL();
         }
-
-        setTimeout(() => {
-            connectWebSocket();
-        }, 300); // 300ms is usually enough for Chrome to clear the previous socket
     </script>
 </body>
 </html>
