@@ -26,7 +26,7 @@
 
 ### 2. Installation
 ```bash
-git clone [https://github.com/HardDie/ytmemchat.git](https://github.com/HardDie/ytmemchat.git)
+git clone https://github.com/HardDie/ytmemchat.git
 cd ytmemchat
 go build -o ytmemchat ./cmd/main.go
 ```
